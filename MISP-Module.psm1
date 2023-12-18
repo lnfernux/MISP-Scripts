@@ -116,10 +116,17 @@ function Get-MISPEvent {
     $MISPAttribute
   )
   # Create the body of the request
-  $Data = @{
+  if($MISPAttribute) {
+    $Data = @{
     org = $MISPOrg
     eventinfo = $MISPEventName
     attribute = $MISPAttribute
+    }
+  } else {
+    $Data = @{
+    org = $MISPOrg
+    eventinfo = $MISPEventName
+    }
   }
   $return = Invoke-MISPRestMethod -Headers $AuthHeader -Method "POST" -Body ($Data | ConvertTo-Json) -Uri "$MISPUri/events/index"
   return $return
