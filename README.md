@@ -146,6 +146,7 @@ function Create-MISPEvent {
 
 #### Add-MISPEventAttribute
 
+```powershell
 function Add-MISPEventAttribute {
   PARAM(
     $MISPUrl,
