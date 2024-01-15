@@ -114,7 +114,7 @@ function Create-MISPEvent {
     # Continue script
     Write-Host "Event does not exist, creating event $MISPEventName"
     
-    # Create body, we will add tlp:green as a tag for testing
+    # Create body
     $Body = @{
       info = "$MISPEventName"
       org_id = $MISPOrg
