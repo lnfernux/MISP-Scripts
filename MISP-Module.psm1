@@ -131,3 +131,226 @@ function Get-MISPEvent {
   $return = Invoke-MISPRestMethod -Headers $AuthHeader -Method "POST" -Body ($Data | ConvertTo-Json) -Uri "$MISPUri/events/index"
   return $return
 }
+
+<#
+.SYNOPSIS
+Adds a tag to a MISP event.
+
+.DESCRIPTION
+This function adds a tag to a MISP event specified by the MISPEventID. It uses the MISP API to perform the operation.
+
+.PARAMETER MISPUrl
+The URL of the MISP instance.
+
+.PARAMETER MISPAuthHeader
+The authentication header for accessing the MISP API.
+
+.PARAMETER MISPEventID
+The ID of the MISP event to which the tag should be added.
+
+.PARAMETER MISPTagId
+The ID of the tag to be added to the MISP event.
+
+.PARAMETER LocalOnly
+Specifies whether the tag should be added locally only. If this switch is used, the tag will not be synced with other MISP instances.
+
+.EXAMPLE
+Add-MISPEventTag -MISPUrl "https://misp.example.com" -MISPAuthHeader "Bearer ABC123" -MISPEventID 12345 -MISPTagId 6789
+
+This example adds the tag with ID 6789 to the MISP event with ID 12345.
+
+#>
+function Add-MISPEventTag {
+  PARAM(
+    $MISPUrl,
+    $MISPAuthHeader,
+    $MISPEventID,
+    $MISPTagId,
+    [switch]$LocalOnly
+  )
+  # Which MISP API Endpoint we are working against
+  $Endpoint = "events/addTag/$MISPEventID/$MISPTagId"
+
+  # Create the body of the request
+  $MISPUrl = "$MISPUrl/$Endpoint"
+
+  # Check local only, add local only if true
+  if($LocalOnly) {
+    $MISPUrl = $MISPUrl0"/local:1"
+  }
+
+  # Invoke the REST method
+  Write-Host "Trying to add tag $MISPTagId to event $MISPEventID"
+  $return = Invoke-MISPRestMethod -Uri $MISPUrl -Header $MISPAuthHeader -Method Post
+  return $return
+}
+
+<#
+.SYNOPSIS
+Adds an attribute to an existing event in a MISP instance.
+
+.DESCRIPTION
+The Add-MISPEventAttribute function is used to add an attribute to an existing event in a MISP (Malware Information Sharing Platform) instance. It constructs the URL for the MISP API endpoint, creates a hashtable for the body of the request, and then invokes a REST method to add the attribute to the event in the MISP instance.
+
+.PARAMETER MISPUrl
+The URL of the MISP instance.
+
+.PARAMETER MISPAuthHeader
+The authentication header for the MISP instance.
+
+.PARAMETER MISPEventID
+The ID of the event to which the attribute should be added.
+
+.PARAMETER MISPAttribute
+The attribute to be added.
+
+.PARAMETER MISPAttributeType
+The type of the attribute to be added.
+
+.PARAMETER MISPAttributeCategory
+The category of the attribute to be added.
+
+.PARAMETER MISPAttributeComment
+A comment for the attribute to be added.
+
+.EXAMPLE
+Add-MISPEventAttribute -MISPUrl "https://misp.example.com" -MISPAuthHeader $AuthHeader -MISPEventID 1234 -MISPAttribute "malware" -MISPAttributeType "string" -MISPAttributeCategory "Payload delivery" -MISPAttributeComment "This is a test attribute"
+
+This example adds an attribute with the value "malware", type "string", category "Payload delivery", and comment "This is a test attribute" to the event with ID 1234 in the MISP instance at "https://misp.example.com".
+
+#>
+function Add-MISPEventAttribute {
+  PARAM(
+    $MISPUrl,
+    $MISPAuthHeader,
+    $MISPEventID,
+    $MISPAttribute,
+    $MISPAttributeType,
+    $MISPAttributeCategory,
+    $MISPAttributeComment
+  )
+  # Which MISP API Endpoint we are working against
+  $Endpoint = "attributes/add/$MISPEventID"
+
+  # Create the body of the request
+  $MISPUrl = "$MISPUrl/$Endpoint"
+  $Body = @{
+    value = $MISPAttribute
+    type = $MISPAttributeType
+    category = $MISPAttributeCategory
+    comment = $MISPAttributeComment
+    event_id = $MISPEventID
+  }
+
+  # Invoke the REST method
+  Write-Host "Trying to add attribute $MISPAttribute to event $MISPEventID"
+  $return = Invoke-MISPRestMethod -Uri $MISPUrl -Header $MISPAuthHeader -Method Post -Body ($Body |
+  return $return
+}
+
+function Create-MISPEvent {
+  PARAM(
+    $MISPUrl,
+    $MISPAuthHeader,
+    $MISPEventPublisher,
+    [array]$MISPTagsId,
+    $MISPOrg,
+    $MISPEventName,
+    [switch]$Publish,
+    $Distribution
+  )
+  # Which MISP API Endpoint we are working against
+  $Endpoint = "events/add"
+  Write-Host "Trying to create event with title: $($MISPEventName)"
+
+  # Check if event already exists
+  $Event = Get-MISPEvent -MISPUrl $MISPUrl -MISPAuthHeader $MISPAuthHeader -MISPEventName $MISPEventName -MISPOrg $MISPOrg
+  if($Event) {
+    Write-Host "Event already exists, returning event"
+    # Set eventID to existing event
+    $MISPEventID =  $Event.Event.Id
+  } else {
+    # Continue script
+    Write-Host "Event does not exist, creating event $MISPEventName"
+    
+    # Create body, we will add tlp:green as a tag for testing
+    $Body = @{
+      info = "$MISPEventName"
+      org_id = $MISPOrg
+      published = $false
+      event_creator_email = $MISPEventPublisher
+      distribution = $Distribution
+    }
+    
+    # Invoke the API to create the event
+    $return = Invoke-MISPRestMethod -Uri "$MISPUrl/$Endpoint" -Header $MISPAuthHeader -Method Post -Body ($Body | ConvertTo-Json)
+    
+    # Get event id from return
+    $MISPEventID = ($return.Content | ConvertFrom-Json).Event.Id
+    
+    # Add tags to event
+    foreach($Tag in $MISPTagsId) {
+      Add-MISPEventTag -MISPUrl $MISPUrl -MISPAuthHeader $MISPAuthHeader -MISPEventID $MISPEventID -MISPTagId $Tag
+    }
+  }
+  # Event exists or has been created, now we can add attributes
+  if($Attributes) {
+    # Format of attributes is a hashtable with the following format: $HashTable = @{Attribute = "value"; Type = "type"; Category = "category"; Comment = "comment"}
+    foreach($Attribute in $Attributes) {
+      Add-MISPEventAttribute -MISPUrl $MISPUrl -MISPAuthHeader $MISPAuthHeader -MISPEventID $MISPEventID -MISPAttribute $Attribute.Attribute -MISPAttributeType $Attribute.Type -MISPAttributeCategory $Attribute.Category -MISPAttributeComment $Attribute.Comment
+    }
+  }
+}
+function Create-MISPEvent {
+  PARAM(
+    $MISPUrl,
+    $MISPAuthHeader,
+    $MISPEventPublisher,
+    [array]$MISPTagsId,
+    $MISPOrg,
+    $MISPEventName,
+    [switch]$Publish,
+    $Distribution
+  )
+  # Which MISP API Endpoint we are working against
+  $Endpoint = "events/add"
+  Write-Host "Trying to create event with title: $($MISPEventName)"
+
+  # Check if event already exists
+  $Event = Get-MISPEvent -MISPUrl $MISPUrl -MISPAuthHeader $MISPAuthHeader -MISPEventName $MISPEventName -MISPOrg $MISPOrg
+  if($Event) {
+    Write-Host "Event already exists, returning event"
+    # Set eventID to existing event
+    $MISPEventID =  $Event.Event.Id
+  } else {
+    # Continue script
+    Write-Host "Event does not exist, creating event $MISPEventName"
+    
+    # Create body, we will add tlp:green as a tag for testing
+    $Body = @{
+      info = "$MISPEventName"
+      org_id = $MISPOrg
+      published = $false
+      event_creator_email = $MISPEventPublisher
+      distribution = $Distribution
+    }
+    
+    # Invoke the API to create the event
+    $return = Invoke-MISPRestMethod -Uri "$MISPUrl/$Endpoint" -Header $MISPAuthHeader -Method Post -Body ($Body | ConvertTo-Json)
+    
+    # Get event id from return
+    $MISPEventID = ($return.Content | ConvertFrom-Json).Event.Id
+    
+    # Add tags to event
+    foreach($Tag in $MISPTagsId) {
+      Add-MISPEventTag -MISPUrl $MISPUrl -MISPAuthHeader $MISPAuthHeader -MISPEventID $MISPEventID -MISPTagId $Tag
+    }
+  }
+  # Event exists or has been created, now we can add attributes
+  if($Attributes) {
+    # Format of attributes is a hashtable with the following format: $HashTable = @{Attribute = "value"; Type = "type"; Category = "category"; Comment = "comment"}
+    foreach($Attribute in $Attributes) {
+      Add-MISPEventAttribute -MISPUrl $MISPUrl -MISPAuthHeader $MISPAuthHeader -MISPEventID $MISPEventID -MISPAttribute $Attribute.Attribute -MISPAttributeType $Attribute.Type -MISPAttributeCategory $Attribute.Category -MISPAttributeComment $Attribute.Comment
+    }
+  }
+}
