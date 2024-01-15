@@ -14,7 +14,7 @@ Currently the module has three pretty simple functions.
 
 This functions requires an authentication key as input and returns a hashtable with the authentication header.
 
-```pwsh
+```powershell
 function New-MISPAuthHeader {
   param(
     $MISPAuthKey
@@ -32,7 +32,7 @@ function New-MISPAuthHeader {
 
 This function requires the output from `New-MISPAuthHeader`, a method, a body and a URI as input. It then invokes the REST-method against the MISP API and returns the result. 
 
-```pwsh
+```powershell
 function Invoke-MISPRestMethod {
   param(
     $Headers,
@@ -59,7 +59,7 @@ function Invoke-MISPRestMethod {
 
 #### Get-MISPEvent
 
-```pwsh
+```powershell
 function Get-MISPEvent {
   param(
     $AuthHeader,
@@ -229,7 +229,7 @@ Using the module will include dot sourcing it to be able to run, or include it a
 
 #### Load the module in the current pwsh session
 
-```pwsh
+```powershell
 . .\MISP-Module.psm1
 ```
 
@@ -237,7 +237,7 @@ Using the module will include dot sourcing it to be able to run, or include it a
 
 We ALWAYS need to create a header in order to run commands.
 
-```pwsh
+```powershell
 $MISPHeader = New-MISPAuthHeader -MISPAuthKey "dadada..."
 ```
 
@@ -245,6 +245,14 @@ $MISPHeader = New-MISPAuthHeader -MISPAuthKey "dadada..."
 
 We use the `$MISPHeader` together with information about our organization, MISP event name and a attribute to check for an existing event. You can also not specify an attribute and only browse events using the MISP event name and org.
 
-```pwsh
+```powershell
 $MISPEvent = Get-MISPEvent -AuthHeader $MISPHeader -MISPUri https://misp.domain -MISPOrg "infernux.no" -MISPEventName "Test Event 1011" -MISPAttribute "exampleText"
+```
+
+#### Create an event 
+
+This function takes the normal input, together with an event name, org and publisher. You can chose to publish with the switch, and add distribution level (defaults to 0). We can also add tags in the form of tag ids. Read more about tags and taxonomies [here](https://www.misp-project.org/taxonomies.html) and you can check the id of a tag using the `Get-MISPTags`-function.
+
+```powershell
+Create-MISPEvent -MISPUrl "https://misp.example.com" -MISPAuthHeader $AuthHeader -MISPEventPublisher "publisher@example.com" -MISPTagsId @("tag1", "tag2") -MISPOrg 1234 -MISPEventName "Test Event" -Publish -Distribution 3
 ```
