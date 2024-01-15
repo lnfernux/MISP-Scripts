@@ -301,6 +301,44 @@ function Create-MISPEvent {
     }
   }
 }
+
+<#
+.SYNOPSIS
+Creates an event in a MISP instance.
+
+.DESCRIPTION
+The Create-MISPEvent function is used to create an event in a MISP (Malware Information Sharing Platform) instance. It first checks if an event with the same name already exists in the MISP instance. If it does, it simply returns the existing event. If not, it creates a new event with the provided parameters.
+
+.PARAMETER MISPUrl
+The URL of the MISP instance.
+
+.PARAMETER MISPAuthHeader
+The authentication header for the MISP instance.
+
+.PARAMETER MISPEventPublisher
+The publisher of the event.
+
+.PARAMETER MISPTagsId
+An array of tag IDs for the event.
+
+.PARAMETER MISPOrg
+The organization ID for the event.
+
+.PARAMETER MISPEventName
+The name of the event.
+
+.PARAMETER Publish
+A switch to indicate whether the event should be published.
+
+.PARAMETER Distribution
+The distribution of the event.
+
+.EXAMPLE
+Create-MISPEvent -MISPUrl "https://misp.example.com" -MISPAuthHeader $AuthHeader -MISPEventPublisher "publisher@example.com" -MISPTagsId @("tag1", "tag2") -MISPOrg 1234 -MISPEventName "Test Event" -Publish $true -Distribution 3
+
+This example creates an event with the name "Test Event", published by "publisher@example.com", with the tags "tag1" and "tag2", for the organization with ID 1234, and with a distribution of 3, in the MISP instance at "https://misp.example.com".
+
+#>
 function Create-MISPEvent {
   PARAM(
     $MISPUrl,
@@ -310,7 +348,7 @@ function Create-MISPEvent {
     $MISPOrg,
     $MISPEventName,
     [switch]$Publish,
-    $Distribution
+    $Distribution = 0
   )
   # Which MISP API Endpoint we are working against
   $Endpoint = "events/add"
@@ -326,11 +364,16 @@ function Create-MISPEvent {
     # Continue script
     Write-Host "Event does not exist, creating event $MISPEventName"
     
-    # Create body, we will add tlp:green as a tag for testing
+    # Create body
+    if($Publish) {
+      $Publish = $true
+    } else {
+      $Publish = $false
+    }
     $Body = @{
       info = "$MISPEventName"
       org_id = $MISPOrg
-      published = $false
+      published = $Publish
       event_creator_email = $MISPEventPublisher
       distribution = $Distribution
     }
@@ -353,4 +396,17 @@ function Create-MISPEvent {
       Add-MISPEventAttribute -MISPUrl $MISPUrl -MISPAuthHeader $MISPAuthHeader -MISPEventID $MISPEventID -MISPAttribute $Attribute.Attribute -MISPAttributeType $Attribute.Type -MISPAttributeCategory $Attribute.Category -MISPAttributeComment $Attribute.Comment
     }
   }
+}
+
+function Get-MISPTags {
+  PARAM(
+    $MISPUrl,
+    $MISPAuthHeader,
+    $Tag
+  )
+  $Endpoint = "tags/search/$Tag"
+  $MISPUrl = "$MISPUrl/$Endpoint"
+  Write-Host "Trying to get ID for tag: $($Tag)"
+  $return = Invoke-MISPRestMethod -Uri $MISPUrl -Headers $MISPAuthHeader -Method Get
+  return $return
 }
