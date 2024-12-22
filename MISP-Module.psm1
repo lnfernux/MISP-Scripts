@@ -244,7 +244,7 @@ function Add-MISPEventAttribute {
 
   # Invoke the REST method
   Write-Host "Trying to add attribute $MISPAttribute to event $MISPEventID"
-  $return = Invoke-MISPRestMethod -Uri $MISPUrl -Header $MISPAuthHeader -Method Post -Body ($Body |
+  $return = Invoke-MISPRestMethod -Uri $MISPUrl -Header $MISPAuthHeader -Method Post -Body ($Body | ConvertTo-Json)
   return $return
 }
 
